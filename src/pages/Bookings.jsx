@@ -583,6 +583,41 @@ const Bookings = () => {
                     </div>
                   )}
                 </div>
+                <div>
+                  <h5 className="mt-4 text-primary">Deposit PDF</h5>
+                  <div className="mb-3">
+                    {bookingDetails.depositPDF ? (
+                      <a
+                        href={`http://194.164.148.244:4062${bookingDetails.depositPDF}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-success"
+                      >
+                        View Deposit PDF
+                      </a>
+                    ) : (
+                      <p>No Deposit PDF available</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h5 className="mt-4 text-primary">Final Booking PDF</h5>
+                  <div className="mb-3">
+                    {bookingDetails.finalBookingPDF ? (
+                      <a
+                        href={`http://194.164.148.244:4062${bookingDetails.finalBookingPDF}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-info"
+                      >
+                        View Final Booking PDF
+                      </a>
+                    ) : (
+                      <p>No Final Booking PDF available</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Right Column - Booking & Car Information */}
