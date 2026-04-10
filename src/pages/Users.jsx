@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);        // NEW: stores all users for search
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
@@ -49,9 +50,13 @@ const Users = () => {
       const data = await res.json();
 
       setUsers(data.users);
-      setFilteredUsers(data.users);
       setPagination(data.pagination);
       setCurrentPage(data.pagination.currentPage);
+      
+      // If search is empty, show paginated users
+      if (searchTerm === '') {
+        setFilteredUsers(data.users);
+      }
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
@@ -60,23 +65,39 @@ const Users = () => {
     }
   };
 
+  // Fetch all users once for search (without pagination)
+  const fetchAllUsers = async () => {
+    try {
+      const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/admin/allusers?page=1&limit=1000`);
+      if (!res.ok) throw new Error('Failed to fetch all users');
+      const data = await res.json();
+      setAllUsers(data.users || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchAllUsers();
   }, []);
 
-  // Filter users based on search
+  // Filter users based on search (using allUsers)
   useEffect(() => {
     if (searchTerm === '') {
+      // No search: show paginated users
       setFilteredUsers(users);
+      setCurrentPage(pagination.currentPage);
     } else {
-      const filtered = users.filter(user => {
+      // Search: filter from allUsers (all pages)
+      const filtered = allUsers.filter(user => {
         const value = user[filterField] ? user[filterField].toString().toLowerCase() : '';
         return value.includes(searchTerm.toLowerCase());
       });
       setFilteredUsers(filtered);
-      setCurrentPage(1);
+      setCurrentPage(1);   // reset to first page when searching
     }
-  }, [searchTerm, filterField, users]);
+  }, [searchTerm, filterField, users, allUsers]);
 
   const handleShow = async (user = null, index = null) => {
     try {
@@ -140,7 +161,9 @@ const Users = () => {
 
         if (!res.ok) throw new Error('Failed to update user');
 
+        // Refresh both paginated and all users
         await fetchUsers(currentPage);
+        await fetchAllUsers();
         toast.success('User updated successfully!');
       }
 
@@ -162,7 +185,9 @@ const Users = () => {
       });
       if (!res.ok) throw new Error('Failed to delete user');
 
+      // Refresh both lists
       await fetchUsers(currentPage);
+      await fetchAllUsers();
       toast.success('User deleted successfully!');
     } catch (err) {
       toast.error(err.message);
@@ -232,8 +257,10 @@ const Users = () => {
     }
   };
 
-  // Updated pagination render function
   const renderPagination = () => {
+    // Only show pagination when NOT searching
+    if (searchTerm !== '') return null;
+    
     if (!pagination.totalPages || pagination.totalPages < 1) return null;
 
     const pages = [];
@@ -289,7 +316,6 @@ const Users = () => {
     );
   };
 
-  // Handle page change
   const handlePageChange = (page) => {
     fetchUsers(page);
   };
@@ -299,13 +325,13 @@ const Users = () => {
       setLoading(true);
       toast.info('Preparing Excel file with detailed user data...', { autoClose: 2000 });
 
-      // Fetch detailed data for all users
+      // Fetch detailed data for all users (using allUsers or fresh fetch)
       const allUsersRes = await fetch('https://varahibackend.varahiselfdrivecars.com/api/admin/allusers?page=1&limit=1000');
       const allUsersData = await allUsersRes.json();
-      const allUsers = allUsersData.users || [];
+      const allUsersList = allUsersData.users || [];
 
       const detailedUsers = await Promise.all(
-        allUsers.map(async (user) => {
+        allUsersList.map(async (user) => {
           try {
             const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/users/get-user/${user.id}`);
             if (!res.ok) throw new Error(`Failed to fetch details for user ${user.id}`);
@@ -378,7 +404,7 @@ const Users = () => {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2 className="mb-0">Users Management</h2>
         <Badge bg="info" className="p-2">
-          Showing {filteredUsers.length} of {pagination.totalUsers} users | Page {pagination.currentPage} of {pagination.totalPages}
+          Showing {filteredUsers.length} of {searchTerm ? allUsers.length : pagination.totalUsers} users | Page {currentPage} of {searchTerm ? 1 : pagination.totalPages}
         </Badge>
       </div>
 
@@ -432,13 +458,13 @@ const Users = () => {
                   <th>Email</th>
                   <th>Actions</th>
                   <th>Details</th>
-                 </tr>
+                </tr>
               </thead>
               <tbody>
                 {sortedUsers.length > 0 ? (
                   sortedUsers.map((u, i) => (
                     <tr key={u.id}>
-                      <td className="text-center">{((pagination.currentPage - 1) * usersPerPage) + i + 1}</td>
+                      <td className="text-center">{((currentPage - 1) * usersPerPage) + i + 1}</td>
                       <td>
                         <Image
                           src={u.profileImage ? u.profileImage : "/profile.png"}
@@ -487,8 +513,8 @@ const Users = () => {
             {/* Pagination Info */}
             <div className="text-center text-muted mt-2">
               <small>
-                Showing {sortedUsers.length} of {pagination.totalUsers} users | 
-                Page {pagination.currentPage} of {pagination.totalPages}
+                Showing {sortedUsers.length} of {searchTerm ? allUsers.length : pagination.totalUsers} users | 
+                Page {currentPage} of {searchTerm ? 1 : pagination.totalPages}
               </small>
             </div>
           </div>
