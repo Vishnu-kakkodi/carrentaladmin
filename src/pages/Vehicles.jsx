@@ -121,9 +121,6 @@ const Vehicles = () => {
           case 'branchName':
             value = v.branch?.name || '';
             break;
-          case 'ownerName':
-            value = v.ownerId?.fullName || '';
-            break;
           default:
             value = '';
         }
@@ -416,7 +413,6 @@ const Vehicles = () => {
         Images: (v.carImage || []).join(', ') || '-',
         Documents: (v.carDocs || []).join(', ') || '-',
         IsPremium: v.isPremium ? 'Yes' : 'No',
-        OwnerName: v.ownerId?.fullName || '-',
         TotalBookings: v.bookedStatus?.length || 0
       }));
 
@@ -694,18 +690,7 @@ const Vehicles = () => {
             <option value="carType">Search by Car Type</option>
             <option value="fuel">Search by Fuel Type</option>
             <option value="isPremium">Search by Premium Status</option>
-            <option value="ownerName">Search by Owner Name</option>
           </Form.Select>
-        </div>
-        <div className="col-md-5">
-          <InputGroup>
-            <FormControl
-              type="text"
-              placeholder={`Search by ${searchType === 'ownerName' ? 'Owner Name' : searchType}`}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </InputGroup>
         </div>
         <div className="col-md-4">
           <div className="d-flex justify-content-end">
@@ -774,7 +759,6 @@ const Vehicles = () => {
                   <th>Status</th>
                   <th>Bookings</th>
                   <th>Premium</th>
-                  <th>Owner</th>
                   <th>Fuel</th>
                   <th>Seats</th>
                   <th>Type</th>
@@ -829,9 +813,6 @@ const Vehicles = () => {
                         <span className={`badge bg-${vehicle.isPremium ? 'warning' : 'secondary'}`}>
                           {vehicle.isPremium ? 'Premium' : 'Standard'}
                         </span>
-                      </td>
-                      <td>
-                        {vehicle.ownerId?.fullName || '-'}
                       </td>
                       <td>{vehicle.fuel}</td>
                       <td>{vehicle.seats}</td>
@@ -1142,10 +1123,6 @@ const Vehicles = () => {
                   <span className={`badge bg-${(viewVehicle.car?.isPremium || viewVehicle.isPremium) ? 'warning' : 'secondary'} ms-2`}>
                     {(viewVehicle.car?.isPremium || viewVehicle.isPremium) ? 'Premium Vehicle' : 'Standard Vehicle'}
                   </span>
-                </div>
-                {/* Owner Info Added */}
-                <div className="mb-3">
-                  <strong>Owner:</strong> {viewVehicle.car?.ownerId?.fullName || viewVehicle.ownerId?.fullName || '-'}
                 </div>
               </div>
 
