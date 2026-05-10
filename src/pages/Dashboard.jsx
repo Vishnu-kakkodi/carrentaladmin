@@ -227,7 +227,7 @@ const Dashboard = () => {
         {/* Responsive row - cards will wrap automatically */}
         <Row className="g-4 mb-5">
           {cardConfig.map((card, idx) => (
-            <Col md={6} lg={4} xl={2} key={idx} className="d-flex">
+            <Col md={6} lg={4} key={idx} className="d-flex">
               <div
                 style={{ ...styles.glassCard, background: card.bg, cursor: 'pointer', width: '100%' }}
                 onClick={() => navigate(card.path)}
