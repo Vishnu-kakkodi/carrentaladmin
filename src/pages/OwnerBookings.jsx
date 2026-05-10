@@ -751,6 +751,7 @@ const OwnerBookings = () => {
                   <th>Created Date</th>
                   <th>Timings</th>
                   <th>Total Price</th>
+                  <th>Owner Comission</th>
                   <th>Pickup Location</th>
                   <th>Status</th>
                   <th>Payment</th>
@@ -782,6 +783,13 @@ const OwnerBookings = () => {
                         <td>{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}</td>
                         <td>{booking.from || 'N/A'} - {booking.to || 'N/A'}</td>
                         <td>₹{booking.totalPrice || '0'}</td>
+                        <td>
+                          ₹{booking.ownerCommission?.amount || 0}
+                          <br />
+                          <small className="text-muted">
+                            {booking.ownerCommission?.percentage || 0}%
+                          </small>
+                        </td>
                         <td>{booking.pickupLocation || 'N/A'}</td>
                         <td>
                           <Badge bg={getStatusBadge(booking.status)} className="text-capitalize">
