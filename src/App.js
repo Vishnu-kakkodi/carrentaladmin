@@ -20,6 +20,7 @@ import PaymentLogs from './pages/PaymentLogs';
 import Owners from './pages/Owners';
 import OwnerVehicles from './pages/OwnerVehicles';
 import OwnerBookings from './pages/OwnerBookings';
+import OwnerCars from './pages/OwnerCars';
 
 function App() {
   return (
@@ -45,7 +46,8 @@ function App() {
             <Route path="settings" element={<Settings />} />
              <Route path="paymentlogs" element={<PaymentLogs />} />
             <Route path="owners" element={<Owners />} />
-            <Route path="owner-cars" element={<OwnerVehicles />} />
+            <Route path="owner-vehicles" element={<OwnerVehicles />} />
+            <Route path="owner-cars" element={<OwnerCars />} />
             <Route path="owner-bookings" element={<OwnerBookings />} />
           </Route>
         </Route>

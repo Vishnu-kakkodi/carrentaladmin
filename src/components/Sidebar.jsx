@@ -16,7 +16,9 @@ import {
   FaChevronRight,
   FaBars,
   FaTools,
-  FaMedal
+  FaMedal,
+  FaQuestion,
+  FaQuestionCircle
 } from 'react-icons/fa';
 import '../assets/sidebar.css';
 
@@ -31,16 +33,17 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     { path: '/admin/vehicles', icon: <FaCarSide />, label: 'Vehicles' },
     // { path: '/admin/premium-deposits', icon: <FaMedal />, label: 'Premium Deposits' },
     { path: '/admin/bookings', icon: <FaClipboardList />, label: 'Bookings' },
-    { path: '/admin/owner-cars', icon: <FaCarSide />, label: 'Owner Cars' },
+    { path: '/admin/owner-cars', icon: <FaQuestionCircle />, label: 'Pending Owner Cars' },
+    { path: '/admin/owner-vehicles', icon: <FaCarSide />, label: 'Owner Vehicles' },
     { path: '/admin/owner-bookings', icon: <FaClipboardList />, label: 'Owner Bookings' },
     { path: '/admin/banners', icon: <FaImages />, label: 'Banners' },
     { path: '/admin/notifications', icon: <FaBell />, label: 'Notifications' },
     { path: '/admin/paymentlogs', icon: <FaBell />, label: 'PaymentLogs' },
     { path: '/admin/maintanence', icon: <FaTools />, label: 'Maintenance' },
     { path: '/admin/settings', icon: <FaCog />, label: 'Settings' },
-    { 
+    {
       path: '/logout',
-      icon: <FaSignOutAlt />, 
+      icon: <FaSignOutAlt />,
       label: 'Logout',
       onClick: () => {
         sessionStorage.removeItem('adminUser');
@@ -50,7 +53,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
   ];
 
   return (
-    <div 
+    <div
       className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobile ? 'mobile' : ''}`}
       style={{
         transform: isMobile ? (isCollapsed ? 'translateX(-100%)' : 'translateX(0)') : 'none'
@@ -58,7 +61,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     >
       <div className="sidebar-header">
         {!isCollapsed && <h3 className="logo">CarRental</h3>}
-        <button 
+        <button
           className="toggle-btn"
           onClick={() => onToggleCollapse(!isCollapsed)}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -68,7 +71,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
       </div>
 
       {isMobile && (
-        <button 
+        <button
           className="mobile-toggle-btn"
           onClick={() => onToggleCollapse(!isCollapsed)}
         >

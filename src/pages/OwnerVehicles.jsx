@@ -11,7 +11,7 @@ const OwnerVehicles = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewVehicle, setViewVehicle] = useState(null);
   const [editingVehicle, setEditingVehicle] = useState(null);
-  const [activeStatusTab, setActiveStatusTab] = useState('all');
+  const [activeStatusTab, setActiveStatusTab] = useState('active');
   const [formData, setFormData] = useState({
     carName: '',
     model: '',
@@ -38,7 +38,8 @@ const OwnerVehicles = () => {
     runningStatus: 'Available',
     isPremium: false,
     depositOptions: [],
-    availability: []
+    availability: [],
+    ownerCommision: '',   // ← added
   });
   const [searchType, setSearchType] = useState('carName');
   const [searchText, setSearchText] = useState('');
@@ -65,9 +66,6 @@ const OwnerVehicles = () => {
   const statusOptions = [
     { value: 'all', label: 'All Vehicles', variant: 'secondary' },
     { value: 'active', label: 'Active', variant: 'success' },
-    { value: 'onHold', label: 'On Hold', variant: 'warning' },
-    { value: 'underRepair', label: 'Under Repair', variant: 'danger' },
-    { value: 'pending', label: 'Pending', variant: 'info' }
   ];
 
   useEffect(() => {
@@ -81,10 +79,7 @@ const OwnerVehicles = () => {
       if (!res.ok) throw new Error('Failed to fetch vehicles');
       const data = await res.json();
       const carList = data.cars || [];
-
-      // Reverse order (newest first)
       const reversed = carList.reverse();
-
       setVehicles(reversed);
       setFilteredVehicles(reversed);
     } catch (err) {
@@ -98,17 +93,14 @@ const OwnerVehicles = () => {
   const filterVehicles = () => {
     let filtered = vehicles;
 
-    // Apply status filter
     if (activeStatusTab !== 'all') {
       filtered = filtered.filter(v => v.status === activeStatusTab);
     }
 
-    // Apply premium filter if enabled
     if (showPremiumOnly) {
       filtered = filtered.filter(v => v.isPremium === true);
     }
 
-    // Apply search filter if there's search text
     if (searchText.trim() !== '') {
       filtered = filtered.filter((v) => {
         let value = '';
@@ -161,30 +153,17 @@ const OwnerVehicles = () => {
     try {
       const response = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/update-car-status/${carId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update status');
-      }
-
-      const result = await response.json();
-      
-      // Update the vehicle in the local state
-      setVehicles(prevVehicles => 
-        prevVehicles.map(vehicle => 
-          vehicle._id === carId 
-            ? { ...vehicle, status: newStatus }
-            : vehicle
+      if (!response.ok) throw new Error('Failed to update status');
+      setVehicles(prevVehicles =>
+        prevVehicles.map(vehicle =>
+          vehicle._id === carId ? { ...vehicle, status: newStatus } : vehicle
         )
       );
-      
       toast.success(`Vehicle status updated to ${newStatus} successfully!`);
     } catch (error) {
-      console.error('Error updating status:', error);
       toast.error('Failed to update vehicle status: ' + error.message);
     } finally {
       setUpdatingStatus(null);
@@ -193,14 +172,11 @@ const OwnerVehicles = () => {
 
   const openEditModal = (vehicle) => {
     setEditingVehicle(vehicle);
-    
-    // Format availability data for editing
     const availabilityData = vehicle.availability || [];
     setAvailabilityRows(availabilityData.map(avail => ({
       date: avail.date || '',
       timeSlots: avail.timeSlots?.join(', ') || ''
     })));
-    
     setFormData({
       carName: vehicle.carName || '',
       model: vehicle.model || '',
@@ -227,19 +203,18 @@ const OwnerVehicles = () => {
       runningStatus: vehicle.runningStatus || 'Available',
       isPremium: vehicle.isPremium || false,
       depositOptions: vehicle.depositOptions || [],
-      availability: vehicle.availability || []
+      availability: vehicle.availability || [],
+      ownerCommision: vehicle.ownerCommision ?? '',   // ← pre-fill from vehicle
     });
-
     setShowCustomTypeInput(!transmissionTypes.includes(vehicle.type));
     setShowCustomCarTypeInput(!carTypes.includes(vehicle.carType));
     setShowCustomFuelInput(!fuelTypes.includes(vehicle.fuel));
-
     setFiles([]);
     setDocFiles([]);
     setShowModal(true);
   };
 
-  const openViewModal = async (vehicle) => {
+  const openViewModal = (vehicle) => {
     setViewVehicle(vehicle);
     setShowViewModal(true);
   };
@@ -249,7 +224,6 @@ const OwnerVehicles = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     if (type === 'checkbox') {
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
@@ -261,36 +235,24 @@ const OwnerVehicles = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      extendedPrice: {
-        ...prev.extendedPrice,
-        [name]: value
-      }
+      extendedPrice: { ...prev.extendedPrice, [name]: value }
     }));
   };
 
   const handleDepositOptionsChange = (e) => {
     const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-    setFormData(prev => ({
-      ...prev,
-      depositOptions: selectedOptions
-    }));
+    setFormData(prev => ({ ...prev, depositOptions: selectedOptions }));
   };
 
-  const handleFileChange = (e) => {
-    setFiles([...e.target.files]);
-  };
-
-  const handleDocFileChange = (e) => {
-    setDocFiles([...e.target.files]);
-  };
+  const handleFileChange = (e) => setFiles([...e.target.files]);
+  const handleDocFileChange = (e) => setDocFiles([...e.target.files]);
 
   const handleAddAvailabilityRow = () => {
     setAvailabilityRows([...availabilityRows, { date: '', timeSlots: '' }]);
   };
 
   const handleRemoveAvailabilityRow = (index) => {
-    const newRows = availabilityRows.filter((_, i) => i !== index);
-    setAvailabilityRows(newRows);
+    setAvailabilityRows(availabilityRows.filter((_, i) => i !== index));
   };
 
   const handleAvailabilityChange = (index, field, value) => {
@@ -334,11 +296,9 @@ const OwnerVehicles = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    // Process availability data
     const processedAvailability = availabilityRows
       .filter(row => row.date && row.timeSlots)
       .map(row => ({
@@ -348,7 +308,6 @@ const OwnerVehicles = () => {
 
     const formDataToSend = new FormData();
 
-    // Append all form data
     Object.keys(formData).forEach(key => {
       if (key === 'extendedPrice') {
         formDataToSend.append(key, JSON.stringify(formData[key]));
@@ -381,24 +340,16 @@ const OwnerVehicles = () => {
     formDataToSend.append('branchLat', formData.branchLat);
     formDataToSend.append('branchLng', formData.branchLng);
 
-    files.forEach(file => {
-      formDataToSend.append('carImage', file);
-    });
-
-    docFiles.forEach(file => {
-      formDataToSend.append('carDocs', file);
-    });
+    files.forEach(file => formDataToSend.append('carImage', file));
+    docFiles.forEach(file => formDataToSend.append('carDocs', file));
 
     try {
       const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/updatecar/${editingVehicle._id}`, {
         method: 'PUT',
         body: formDataToSend,
       });
-      
       if (!res.ok) throw new Error('Failed to update vehicle');
-      
-      const result = await res.json();
-      await fetchVehicles(); // Refresh the list
+      await fetchVehicles();
       toast.success('Car updated successfully!');
       setShowModal(false);
     } catch (err) {
@@ -426,7 +377,6 @@ const OwnerVehicles = () => {
   const handleDownload = () => {
     try {
       toast.info('Preparing Excel file with vehicle data...', { autoClose: 2000 });
-
       const wsData = vehicles.map(v => ({
         ID: v._id,
         Name: v.carName || '-',
@@ -436,6 +386,7 @@ const OwnerVehicles = () => {
         PricePerDay: v.pricePerDay || '-',
         ExtendedPricePerHour: v.extendedPrice?.perHour || '-',
         ExtendedPricePerDay: v.extendedPrice?.perDay || '-',
+        OwnerCommision: v.ownerCommision ?? '-',   // ← included in export
         Status: v.status || 'active',
         RunningStatus: v.runningStatus || 'Available',
         AvailabilityStatus: v.availabilityStatus !== false ? 'Available' : 'Not Available',
@@ -460,21 +411,10 @@ const OwnerVehicles = () => {
       const ws = XLSX.utils.json_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "OwnerVehicles");
-
-      ws['!cols'] = [
-        { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 },
-        { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 },
-        { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 10 },
-        { wch: 10 }, { wch: 15 }, { wch: 20 }, { wch: 30 },
-        { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
-        { wch: 25 }, { wch: 40 }, { wch: 10 }, { wch: 20 },
-        { wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 40 }
-      ];
-
+      ws['!cols'] = Array(28).fill({ wch: 20 });
       XLSX.writeFile(wb, "OwnerVehicles_Report.xlsx");
       toast.success('Excel file downloaded successfully!', { autoClose: 2000 });
     } catch (error) {
-      console.error('Error generating vehicle Excel:', error);
       toast.error('Failed to download vehicle data.', { autoClose: 2000 });
     }
   };
@@ -484,9 +424,7 @@ const OwnerVehicles = () => {
     toast.success('Data refreshed successfully!');
   };
 
-  const togglePremiumFilter = () => {
-    setShowPremiumOnly(!showPremiumOnly);
-  };
+  const togglePremiumFilter = () => setShowPremiumOnly(!showPremiumOnly);
 
   const getStatusCount = (status) => {
     if (status === 'all') return vehicles.length;
@@ -501,39 +439,24 @@ const OwnerVehicles = () => {
 
   const renderPagination = () => {
     if (!totalPages || totalPages < 1) return null;
-
     const pages = [];
     const pageSet = new Set();
-
     pageSet.add(1);
-    if (totalPages > 1) {
-      pageSet.add(totalPages);
-    }
+    if (totalPages > 1) pageSet.add(totalPages);
     if (currentPage > 1) pageSet.add(currentPage - 1);
     pageSet.add(currentPage);
     if (currentPage < totalPages) pageSet.add(currentPage + 1);
-
     const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
-
     let lastPage = 0;
     sortedPages.forEach((page) => {
-      if (page - lastPage > 1) {
-        pages.push(<Pagination.Ellipsis key={`ellipsis-${page}`} disabled />);
-      }
-
+      if (page - lastPage > 1) pages.push(<Pagination.Ellipsis key={`ellipsis-${page}`} disabled />);
       pages.push(
-        <Pagination.Item
-          key={page}
-          active={page === currentPage}
-          onClick={() => setCurrentPage(page)}
-        >
+        <Pagination.Item key={page} active={page === currentPage} onClick={() => setCurrentPage(page)}>
           {page}
         </Pagination.Item>
       );
-
       lastPage = page;
     });
-
     return (
       <Pagination className="mt-3 justify-content-center">
         <Pagination.First onClick={() => setCurrentPage(1)} disabled={currentPage === 1} />
@@ -555,11 +478,7 @@ const OwnerVehicles = () => {
           <Button variant="info" className="me-2" onClick={handleRefresh}>
             <i className="fas fa-sync-alt me-2"></i>Refresh
           </Button>
-          <Button
-            variant="success"
-            onClick={handleDownload}
-            disabled={vehicles.length === 0}
-          >
+          <Button variant="success" onClick={handleDownload} disabled={vehicles.length === 0}>
             <i className="fas fa-file-excel me-2"></i>Export
           </Button>
         </div>
@@ -567,13 +486,11 @@ const OwnerVehicles = () => {
 
       {/* Status Navigation Tabs */}
       <div className="mb-4">
-        <Nav variant="tabs" defaultActiveKey="all" activeKey={activeStatusTab} onSelect={(selectedKey) => setActiveStatusTab(selectedKey)}>
+        <Nav variant="tabs" activeKey={activeStatusTab} onSelect={(selectedKey) => setActiveStatusTab(selectedKey)}>
           {statusOptions.map(option => (
             <Nav.Item key={option.value}>
               <Nav.Link eventKey={option.value}>
-                <Badge bg={option.variant} className="me-2">
-                  {getStatusCount(option.value)}
-                </Badge>
+                <Badge bg={option.variant} className="me-2">{getStatusCount(option.value)}</Badge>
                 {option.label}
               </Nav.Link>
             </Nav.Item>
@@ -584,10 +501,7 @@ const OwnerVehicles = () => {
       {/* Search and Filter Row */}
       <div className="row mb-3">
         <div className="col-md-3">
-          <Form.Select
-            value={searchType}
-            onChange={(e) => setSearchType(e.target.value)}
-          >
+          <Form.Select value={searchType} onChange={(e) => setSearchType(e.target.value)}>
             <option value="carName">Search by Car Name</option>
             <option value="model">Search by Model</option>
             <option value="location">Search by Location</option>
@@ -613,19 +527,15 @@ const OwnerVehicles = () => {
         </div>
         <div className="col-md-5">
           <div className="d-flex justify-content-end">
-            <Button 
-              variant={showPremiumOnly ? "warning" : "outline-warning"} 
+            <Button
+              variant={showPremiumOnly ? "warning" : "outline-warning"}
               className="me-2"
               onClick={togglePremiumFilter}
             >
               <i className="fas fa-crown me-2"></i>
               {showPremiumOnly ? "Show All Cars" : "Premium Cars Only"}
             </Button>
-            <Button variant="secondary" onClick={() => {
-              setSearchText('');
-              setSearchType('carName');
-              setShowPremiumOnly(false);
-            }}>
+            <Button variant="secondary" onClick={() => { setSearchText(''); setSearchType('carName'); setShowPremiumOnly(false); }}>
               <i className="fas fa-times me-2"></i>Clear Filters
             </Button>
           </div>
@@ -640,9 +550,7 @@ const OwnerVehicles = () => {
         <Alert variant="danger">{error}</Alert>
       ) : vehicles.length === 0 ? (
         <div className="text-center py-5">
-          <div className="mb-4">
-            <i className="fas fa-car fa-4x text-muted"></i>
-          </div>
+          <div className="mb-4"><i className="fas fa-car fa-4x text-muted"></i></div>
           <h4 className="text-muted mb-3">No Owner Vehicles Found</h4>
           <p className="text-muted mb-4">No vehicles have been added by owners yet.</p>
         </div>
@@ -654,7 +562,7 @@ const OwnerVehicles = () => {
               Showing only premium vehicles ({filteredVehicles.length} found)
             </Alert>
           )}
-          
+
           <div className="table-responsive">
             <Table bordered hover striped>
               <thead>
@@ -667,6 +575,7 @@ const OwnerVehicles = () => {
                   <th>Year</th>
                   <th>Price/Hr</th>
                   <th>Price/Day</th>
+                  <th>Commission %</th>
                   <th>Status</th>
                   <th>Premium</th>
                   <th>Fuel</th>
@@ -685,7 +594,7 @@ const OwnerVehicles = () => {
               <tbody>
                 {paginatedVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan="21" className="text-center">No vehicles match your search criteria.</td>
+                    <td colSpan="22" className="text-center">No vehicles match your search criteria.</td>
                   </tr>
                 ) : (
                   paginatedVehicles.map((vehicle, index) => (
@@ -704,8 +613,15 @@ const OwnerVehicles = () => {
                       <td>{vehicle.carName}</td>
                       <td>{vehicle.model}</td>
                       <td>{vehicle.year}</td>
-                      <td>₹{vehicle.pricePerHour}</td>
-                      <td>₹{vehicle.pricePerDay}</td>
+                      <td>₹{vehicle?.pricePerHour || 'N/A'}</td>
+                      <td>₹{vehicle?.pricePerDay || 'N/A'}</td>
+                      {/* ── Owner Commission column ── */}
+                      <td className="text-center">
+                        {vehicle.ownerCommision != null && vehicle.ownerCommision !== ''
+                          ? <Badge bg="info">{vehicle.ownerCommision}%</Badge>
+                          : <span className="text-muted">—</span>
+                        }
+                      </td>
                       <td>
                         <Form.Select
                           size="sm"
@@ -713,9 +629,9 @@ const OwnerVehicles = () => {
                           onChange={(e) => updateCarStatus(vehicle._id, e.target.value)}
                           disabled={updatingStatus === vehicle._id}
                           style={{ width: '130px' }}
-                          className={`border-${vehicle.status === 'active' ? 'success' : 
-                                      vehicle.status === 'onHold' ? 'warning' : 
-                                      vehicle.status === 'underRepair' ? 'danger' : 'info'}`}
+                          className={`border-${vehicle.status === 'active' ? 'success' :
+                            vehicle.status === 'onHold' ? 'warning' :
+                            vehicle.status === 'underRepair' ? 'danger' : 'info'}`}
                         >
                           <option value="active">Active</option>
                           <option value="onHold">On Hold</option>
@@ -744,30 +660,19 @@ const OwnerVehicles = () => {
                         {vehicle.depositOptions?.length > 0 ? (
                           <div className="d-flex flex-wrap gap-1">
                             {vehicle.depositOptions.map((opt, idx) => (
-                              <Badge key={idx} bg="info" className="me-1">
-                                {opt}
-                              </Badge>
+                              <Badge key={idx} bg="info" className="me-1">{opt}</Badge>
                             ))}
                           </div>
                         ) : '-'}
                       </td>
                       <td className="text-center align-middle">
-                        <button
-                          className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-info"
-                          onClick={() => openViewModal(vehicle)}
-                        >
+                        <button className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-info" onClick={() => openViewModal(vehicle)}>
                           <i className="fas fa-eye"></i>
                         </button>
-                        <button
-                          className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-warning"
-                          onClick={() => openEditModal(vehicle)}
-                        >
+                        <button className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-warning" onClick={() => openEditModal(vehicle)}>
                           <i className="fas fa-edit"></i>
                         </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleDelete(vehicle._id)}
-                        >
+                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(vehicle._id)}>
                           <i className="fas fa-trash"></i>
                         </button>
                       </td>
@@ -781,7 +686,9 @@ const OwnerVehicles = () => {
         </>
       )}
 
-      {/* Edit Modal with all fields */}
+      {/* ─────────────────────────────────────────────────────────────
+          Edit / Create Modal
+      ───────────────────────────────────────────────────────────── */}
       <Modal show={showModal} onHide={closeModal} centered size="lg" scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Edit Vehicle</Modal.Title>
@@ -789,158 +696,96 @@ const OwnerVehicles = () => {
         <Modal.Body>
           <Form onSubmit={handleSubmit}>
             <div className="row">
-              {/* Basic Information */}
+
+              {/* ── Basic Information ── */}
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Car Name *</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="carName"
-                  value={formData.carName}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="text" name="carName" value={formData.carName} onChange={handleChange} required />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Model *</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="model"
-                  value={formData.model}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="text" name="model" value={formData.model} onChange={handleChange} required />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Year *</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="year"
-                  value={formData.year}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="number" name="year" value={formData.year} onChange={handleChange} required />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Vehicle Number *</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="vehicleNumber"
-                  value={formData.vehicleNumber}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="text" name="vehicleNumber" value={formData.vehicleNumber} onChange={handleChange} required />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Location *</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="text" name="location" value={formData.location} onChange={handleChange} required />
               </Form.Group>
 
-              {/* Pricing Information */}
+              {/* ── Pricing Information ── */}
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Price Per Hour *</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="pricePerHour"
-                  value={formData.pricePerHour}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="number" name="pricePerHour" value={formData.pricePerHour} onChange={handleChange} required />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Price Per Day *</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="pricePerDay"
-                  value={formData.pricePerDay}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="number" name="pricePerDay" value={formData.pricePerDay} onChange={handleChange} required />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Extended Price Per Hour</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="perHour"
-                  value={formData.extendedPrice.perHour}
-                  onChange={handleExtendedPriceChange}
-                />
+                <Form.Control type="number" name="perHour" value={formData.extendedPrice.perHour} onChange={handleExtendedPriceChange} />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Extended Price Per Day</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="perDay"
-                  value={formData.extendedPrice.perDay}
-                  onChange={handleExtendedPriceChange}
-                />
+                <Form.Control type="number" name="perDay" value={formData.extendedPrice.perDay} onChange={handleExtendedPriceChange} />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Delay Per Hour</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="delayPerHour"
-                  value={formData.delayPerHour}
-                  onChange={handleChange}
-                />
+                <Form.Control type="number" name="delayPerHour" value={formData.delayPerHour} onChange={handleChange} />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Delay Per Day</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="delayPerDay"
-                  value={formData.delayPerDay}
-                  onChange={handleChange}
-                />
+                <Form.Control type="number" name="delayPerDay" value={formData.delayPerDay} onChange={handleChange} />
               </Form.Group>
 
-              {/* Vehicle Specifications */}
+              {/* ── Owner Commission (NEW) ── */}
+              <Form.Group className="mb-3 col-md-6">
+                <Form.Label>Owner Commission (%)</Form.Label>
+                <div className="input-group">
+                  <Form.Control
+                    type="number"
+                    name="ownerCommision"
+                    value={formData.ownerCommision}
+                    onChange={handleChange}
+                    placeholder="e.g. 15"
+                    min="0"
+                    max="100"
+                  />
+                  <span className="input-group-text">%</span>
+                </div>
+                <Form.Text className="text-muted">Percentage commission paid to the vehicle owner.</Form.Text>
+              </Form.Group>
+
+              {/* ── Vehicle Specifications ── */}
               <Form.Group className="mb-3 col-md-3">
                 <Form.Label>Seats *</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="seats"
-                  value={formData.seats}
-                  onChange={handleChange}
-                  required
-                />
+                <Form.Control type="number" name="seats" value={formData.seats} onChange={handleChange} required />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-3">
                 <Form.Label>Transmission Type *</Form.Label>
                 {showCustomTypeInput ? (
-                  <Form.Control
-                    type="text"
-                    name="type"
-                    value={formData.type}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Form.Control type="text" name="type" value={formData.type} onChange={handleChange} required />
                 ) : (
-                  <Form.Select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleTypeChange}
-                    required
-                  >
+                  <Form.Select name="type" value={formData.type} onChange={handleTypeChange} required>
                     <option value="">Select Transmission</option>
-                    {transmissionTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
+                    {transmissionTypes.map(type => <option key={type} value={type}>{type}</option>)}
                     <option value="custom">Custom...</option>
                   </Form.Select>
                 )}
@@ -949,24 +794,11 @@ const OwnerVehicles = () => {
               <Form.Group className="mb-3 col-md-3">
                 <Form.Label>Car Type *</Form.Label>
                 {showCustomCarTypeInput ? (
-                  <Form.Control
-                    type="text"
-                    name="carType"
-                    value={formData.carType}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Form.Control type="text" name="carType" value={formData.carType} onChange={handleChange} required />
                 ) : (
-                  <Form.Select
-                    name="carType"
-                    value={formData.carType}
-                    onChange={handleCarTypeChange}
-                    required
-                  >
+                  <Form.Select name="carType" value={formData.carType} onChange={handleCarTypeChange} required>
                     <option value="">Select Car Type</option>
-                    {carTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
+                    {carTypes.map(type => <option key={type} value={type}>{type}</option>)}
                     <option value="custom">Custom...</option>
                   </Form.Select>
                 )}
@@ -975,37 +807,20 @@ const OwnerVehicles = () => {
               <Form.Group className="mb-3 col-md-3">
                 <Form.Label>Fuel Type *</Form.Label>
                 {showCustomFuelInput ? (
-                  <Form.Control
-                    type="text"
-                    name="fuel"
-                    value={formData.fuel}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Form.Control type="text" name="fuel" value={formData.fuel} onChange={handleChange} required />
                 ) : (
-                  <Form.Select
-                    name="fuel"
-                    value={formData.fuel}
-                    onChange={handleFuelChange}
-                    required
-                  >
+                  <Form.Select name="fuel" value={formData.fuel} onChange={handleFuelChange} required>
                     <option value="">Select Fuel Type</option>
-                    {fuelTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
+                    {fuelTypes.map(type => <option key={type} value={type}>{type}</option>)}
                     <option value="custom">Custom...</option>
                   </Form.Select>
                 )}
               </Form.Group>
 
-              {/* Status Information */}
+              {/* ── Status Information ── */}
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Status</Form.Label>
-                <Form.Select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                >
+                <Form.Select name="status" value={formData.status} onChange={handleChange}>
                   <option value="active">Active</option>
                   <option value="onHold">On Hold</option>
                   <option value="underRepair">Under Repair</option>
@@ -1015,11 +830,7 @@ const OwnerVehicles = () => {
 
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Running Status</Form.Label>
-                <Form.Select
-                  name="runningStatus"
-                  value={formData.runningStatus}
-                  onChange={handleChange}
-                >
+                <Form.Select name="runningStatus" value={formData.runningStatus} onChange={handleChange}>
                   <option value="Available">Available</option>
                   <option value="Booked">Booked</option>
                 </Form.Select>
@@ -1053,64 +864,35 @@ const OwnerVehicles = () => {
                 </div>
               </Form.Group>
 
-              {/* Branch Information */}
+              {/* ── Branch Information ── */}
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Branch Name</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="branchName"
-                  value={formData.branchName}
-                  onChange={handleChange}
-                />
+                <Form.Control type="text" name="branchName" value={formData.branchName} onChange={handleChange} />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Branch Latitude</Form.Label>
-                <Form.Control
-                  type="number"
-                  step="any"
-                  name="branchLat"
-                  value={formData.branchLat}
-                  onChange={handleChange}
-                />
+                <Form.Control type="number" step="any" name="branchLat" value={formData.branchLat} onChange={handleChange} />
               </Form.Group>
 
               <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Branch Longitude</Form.Label>
-                <Form.Control
-                  type="number"
-                  step="any"
-                  name="branchLng"
-                  value={formData.branchLng}
-                  onChange={handleChange}
-                />
+                <Form.Control type="number" step="any" name="branchLng" value={formData.branchLng} onChange={handleChange} />
               </Form.Group>
 
-              {/* Deposit Options */}
+              {/* ── Deposit Options ── */}
               <Form.Group className="mb-3 col-12">
                 <Form.Label>Deposit Options</Form.Label>
-                <Form.Select
-                  multiple
-                  value={formData.depositOptions}
-                  onChange={handleDepositOptionsChange}
-                  style={{ height: '100px' }}
-                >
-                  {depositOptionTypes.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
+                <Form.Select multiple value={formData.depositOptions} onChange={handleDepositOptionsChange} style={{ height: '100px' }}>
+                  {depositOptionTypes.map(option => <option key={option} value={option}>{option}</option>)}
                 </Form.Select>
                 <small className="text-muted">Hold Ctrl/Cmd to select multiple options</small>
               </Form.Group>
 
-              {/* Availability Schedule */}
+              {/* ── Availability Schedule ── */}
               <div className="col-12 mb-3">
                 <Form.Label className="fw-bold">Availability Schedule</Form.Label>
-                <Button 
-                  variant="outline-primary" 
-                  size="sm" 
-                  onClick={handleAddAvailabilityRow}
-                  className="mb-2"
-                >
+                <Button variant="outline-primary" size="sm" onClick={handleAddAvailabilityRow} className="mb-2 ms-2">
                   <i className="fas fa-plus me-1"></i> Add Availability
                 </Button>
                 {availabilityRows.map((row, index) => (
@@ -1118,7 +900,6 @@ const OwnerVehicles = () => {
                     <div className="col-md-4">
                       <Form.Control
                         type="date"
-                        placeholder="Date"
                         value={row.date}
                         onChange={(e) => handleAvailabilityChange(index, 'date', e.target.value)}
                       />
@@ -1132,11 +913,7 @@ const OwnerVehicles = () => {
                       />
                     </div>
                     <div className="col-md-2">
-                      <Button 
-                        variant="outline-danger" 
-                        size="sm"
-                        onClick={() => handleRemoveAvailabilityRow(index)}
-                      >
+                      <Button variant="outline-danger" size="sm" onClick={() => handleRemoveAvailabilityRow(index)}>
                         <i className="fas fa-trash"></i>
                       </Button>
                     </div>
@@ -1144,38 +921,22 @@ const OwnerVehicles = () => {
                 ))}
               </div>
 
-              {/* Description */}
+              {/* ── Description ── */}
               <Form.Group className="mb-3 col-12">
                 <Form.Label>Description</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                />
+                <Form.Control as="textarea" rows={3} name="description" value={formData.description} onChange={handleChange} />
               </Form.Group>
 
-              {/* Files */}
+              {/* ── Files ── */}
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Car Images</Form.Label>
-                <Form.Control
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  accept="image/*"
-                />
+                <Form.Control type="file" multiple onChange={handleFileChange} accept="image/*" />
                 {editingVehicle && formData.carImage?.length > 0 && (
                   <div className="mt-2">
                     <small>Current Images: {formData.carImage.length} image(s)</small>
                     <div className="d-flex flex-wrap mt-1">
                       {formData.carImage.slice(0, 3).map((img, idx) => (
-                        <img
-                          key={idx}
-                          src={img}
-                          alt={`Current ${idx}`}
-                          style={{ width: '50px', height: '50px', objectFit: 'cover', marginRight: '5px' }}
-                        />
+                        <img key={idx} src={img} alt={`Current ${idx}`} style={{ width: '50px', height: '50px', objectFit: 'cover', marginRight: '5px' }} />
                       ))}
                       {formData.carImage.length > 3 && <span>+{formData.carImage.length - 3} more</span>}
                     </div>
@@ -1185,20 +946,16 @@ const OwnerVehicles = () => {
 
               <Form.Group className="mb-3 col-md-6">
                 <Form.Label>Car Documents</Form.Label>
-                <Form.Control
-                  type="file"
-                  multiple
-                  onChange={handleDocFileChange}
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                />
+                <Form.Control type="file" multiple onChange={handleDocFileChange} accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" />
                 {editingVehicle && formData.carDocs?.length > 0 && (
                   <div className="mt-2">
                     <small>Current Documents: {formData.carDocs.length} document(s)</small>
                   </div>
                 )}
               </Form.Group>
+
             </div>
-            
+
             <div className="d-flex justify-content-end">
               <Button variant="secondary" onClick={closeModal} className="me-2">Cancel</Button>
               <Button variant="primary" type="submit" disabled={isSubmitting}>
@@ -1214,7 +971,9 @@ const OwnerVehicles = () => {
         </Modal.Body>
       </Modal>
 
-      {/* View Vehicle Modal */}
+      {/* ─────────────────────────────────────────────────────────────
+          View Vehicle Modal
+      ───────────────────────────────────────────────────────────── */}
       <Modal show={showViewModal} onHide={closeViewModal} centered size="lg" scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Vehicle Details</Modal.Title>
@@ -1236,12 +995,20 @@ const OwnerVehicles = () => {
               {/* Pricing Information */}
               <div className="col-md-6">
                 <h5 className="text-primary mb-3">Pricing Information</h5>
-                <div className="mb-2"><strong>Price Per Hour:</strong> ₹{viewVehicle.pricePerHour || '-'}</div>
-                <div className="mb-2"><strong>Price Per Day:</strong> ₹{viewVehicle.pricePerDay || '-'}</div>
-                <div className="mb-2"><strong>Extended Price/Hour:</strong> ₹{viewVehicle.extendedPrice?.perHour || '-'}</div>
-                <div className="mb-2"><strong>Extended Price/Day:</strong> ₹{viewVehicle.extendedPrice?.perDay || '-'}</div>
-                <div className="mb-2"><strong>Delay Per Hour:</strong> ₹{viewVehicle.delayPerHour || '-'}</div>
-                <div className="mb-2"><strong>Delay Per Day:</strong> ₹{viewVehicle.delayPerDay || '-'}</div>
+                <div className="mb-2"><strong>Price Per Hour:</strong> ₹{viewVehicle.pricePerHour || 'N/A'}</div>
+                <div className="mb-2"><strong>Price Per Day:</strong> ₹{viewVehicle.pricePerDay || 'N/A'}</div>
+                <div className="mb-2"><strong>Extended Price/Hour:</strong> ₹{viewVehicle.extendedPrice?.perHour || 'N/A'}</div>
+                <div className="mb-2"><strong>Extended Price/Day:</strong> ₹{viewVehicle.extendedPrice?.perDay || 'N/A'}</div>
+                <div className="mb-2"><strong>Delay Per Hour:</strong> ₹{viewVehicle.delayPerHour || 'N/A'}</div>
+                <div className="mb-2"><strong>Delay Per Day:</strong> ₹{viewVehicle.delayPerDay || 'N/A'}</div>
+                {/* ── Owner Commission in view modal ── */}
+                <div className="mb-2">
+                  <strong>Owner Commission:</strong>{' '}
+                  {viewVehicle.ownerCommision != null && viewVehicle.ownerCommision !== ''
+                    ? <Badge bg="info">{viewVehicle.ownerCommision}%</Badge>
+                    : <span className="text-muted">—</span>
+                  }
+                </div>
               </div>
 
               {/* Specifications */}
@@ -1258,9 +1025,9 @@ const OwnerVehicles = () => {
                 <h5 className="text-primary mb-3">Status Information</h5>
                 <div className="mb-2">
                   <strong>Status:</strong>{' '}
-                  <span className={`badge bg-${viewVehicle.status === 'active' ? 'success' : 
-                                       viewVehicle.status === 'onHold' ? 'warning' : 
-                                       viewVehicle.status === 'underRepair' ? 'danger' : 'info'}`}>
+                  <span className={`badge bg-${viewVehicle.status === 'active' ? 'success' :
+                    viewVehicle.status === 'onHold' ? 'warning' :
+                    viewVehicle.status === 'underRepair' ? 'danger' : 'info'}`}>
                     {viewVehicle.status || 'active'}
                   </span>
                 </div>
@@ -1295,8 +1062,12 @@ const OwnerVehicles = () => {
               <div className="col-md-6 mt-3">
                 <h5 className="text-primary mb-3">Branch Information</h5>
                 <div className="mb-2"><strong>Branch Name:</strong> {viewVehicle.branch?.name || '-'}</div>
-                <div className="mb-2"><strong>Location:</strong> {viewVehicle.branch?.location?.coordinates ? 
-                  `${viewVehicle.branch.location.coordinates[1]}, ${viewVehicle.branch.location.coordinates[0]}` : '-'}</div>
+                <div className="mb-2">
+                  <strong>Location:</strong>{' '}
+                  {viewVehicle.branch?.location?.coordinates
+                    ? `${viewVehicle.branch.location.coordinates[1]}, ${viewVehicle.branch.location.coordinates[0]}`
+                    : '-'}
+                </div>
               </div>
 
               {/* Deposit Options */}
@@ -1308,9 +1079,7 @@ const OwnerVehicles = () => {
                       <span key={index} className="badge bg-info">{option}</span>
                     ))}
                   </div>
-                ) : (
-                  <p>No deposit options available</p>
-                )}
+                ) : <p>No deposit options available</p>}
               </div>
 
               {/* Availability Schedule */}
@@ -1320,10 +1089,7 @@ const OwnerVehicles = () => {
                   <div className="table-responsive">
                     <table className="table table-sm table-bordered">
                       <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Time Slots</th>
-                        </tr>
+                        <tr><th>Date</th><th>Time Slots</th></tr>
                       </thead>
                       <tbody>
                         {viewVehicle.availability.map((avail, index) => (
@@ -1335,9 +1101,7 @@ const OwnerVehicles = () => {
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <p>No availability information</p>
-                )}
+                ) : <p>No availability information</p>}
               </div>
 
               {/* Images */}
@@ -1346,17 +1110,11 @@ const OwnerVehicles = () => {
                 {viewVehicle.carImage?.length > 0 ? (
                   <div className="d-flex flex-wrap">
                     {viewVehicle.carImage.map((img, index) => (
-                      <img
-                        key={index}
-                        src={img}
-                        alt={`Car ${index}`}
-                        style={{ width: '120px', height: '80px', objectFit: 'cover', marginRight: '8px', marginBottom: '8px' }}
-                      />
+                      <img key={index} src={img} alt={`Car ${index}`}
+                        style={{ width: '120px', height: '80px', objectFit: 'cover', marginRight: '8px', marginBottom: '8px' }} />
                     ))}
                   </div>
-                ) : (
-                  <p>No images available</p>
-                )}
+                ) : <p>No images available</p>}
               </div>
 
               {/* Documents */}
@@ -1365,21 +1123,13 @@ const OwnerVehicles = () => {
                 {viewVehicle.carDocs?.length > 0 ? (
                   <div className="d-flex flex-wrap">
                     {viewVehicle.carDocs.map((doc, index) => (
-                      <a 
-                        key={index} 
-                        href={doc} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="me-3 mb-2"
-                      >
+                      <a key={index} href={doc} target="_blank" rel="noopener noreferrer" className="me-3 mb-2">
                         <i className="fas fa-file-alt fa-2x text-info"></i>
                         <span className="ms-2">Document {index + 1}</span>
                       </a>
                     ))}
                   </div>
-                ) : (
-                  <p>No documents available</p>
-                )}
+                ) : <p>No documents available</p>}
               </div>
             </div>
           ) : (
