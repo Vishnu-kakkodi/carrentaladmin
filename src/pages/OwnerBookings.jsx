@@ -779,7 +779,7 @@ const OwnerBookings = () => {
       {/* Table Section with Scrollable Container */}
       <Card className="shadow-sm">
         <Card.Body className="p-0">
-          <div className="table-responsive" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+          <div className="table-responsive" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner animation="border" variant="primary" />
